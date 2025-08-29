@@ -1,0 +1,30 @@
+@import url("https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&display=swap");
+@import "tailwindcss";
+
+@theme {
+  /* Light & Soft Color Palette */
+  --color-background: #fdf6e3; /* Soft Cream (Fallback) */
+  --color-text-heading: #586e75; /* Muted Dark Teal/Gray */
+  --color-text-body: #657b83; /* Soft Gray */
+  --color-peach: #fbc4ab; /* Soft Peach */
+  --color-blush: #f7cac9; /* Soft Blush Pink */
+  --color-sky: #a0d2db; /* Pale Sky Blue */
+  --color-mint: #cce3de; /* Light Mint */
+  --color-lavender: #d6bcf5; /* Soft Lavender */
+  --color-gold: #f59e0b;
+}
+
+body {
+  background-color: var(--color-background);
+
+  font-family: "Funnel Display", sans-serif;
+  color: var(--color-text-body);
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+@layer components {
+  .soft-container {
+    @apply bg-[var(--color-peach)] border-4 border-white rounded-2xl px-16 py-10 text-center shadow-lg shadow-[var(--color-peach)]/50;
+  }
+}
