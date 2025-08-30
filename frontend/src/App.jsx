@@ -8,7 +8,7 @@ import HamburgerButton from "./components/HamburgerButton";
 import ConfettiEffect from "./components/ConfettiEffect";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL 
+  ? import.meta.env.VITE_API_URL
   : "http://localhost:5000";
 
 const PROGRESS_API_URL = `${API_BASE_URL}/api/progress`;
@@ -24,7 +24,7 @@ const getUserId = () => {
 
 function App() {
   const [gameState, setGameState] = useState("intro");
-  const [unlockedLevel, setUnlockedLevel] = useState(1); 
+  const [unlockedLevel, setUnlockedLevel] = useState(1);
   const [currentLevel, setCurrentLevel] = useState(1);
   const [currentStep, setCurrentStep] = useState(0);
   const [robotState, setRobotState] = useState("intro");
@@ -35,17 +35,17 @@ function App() {
 
   const totalQuestions = useMemo(
     () =>
-      story
+      (story || [])
         .slice(0, 7)
-        .flatMap((level) => level.steps)
+        .flatMap((level) => level.steps || [])
         .filter((step) => step.type !== "intro").length,
     []
   );
   const completedQuestions = useMemo(
     () =>
-      gameData
+      (gameData || [])
         .slice(0, 7)
-        .flatMap((level) => level.steps)
+        .flatMap((level) => level.steps || [])
         .filter((step) => step.type !== "intro" && step.isComplete).length,
     [gameData]
   );
@@ -62,10 +62,8 @@ function App() {
         setCurrentLevel(1);
       }
     };
-    if (gameState !== 'intro' || (currentLevel === 1 && currentStep === 0)) {
-       fetchProgress();
-    }
-  }, [userId, gameState]);
+    fetchProgress();
+  }, [userId]);
 
   const saveProgress = async (newLevel) => {
     if (newLevel > unlockedLevel) {
@@ -80,46 +78,77 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    const activeContentData =
-      gameState === "intro"
-        ? { steps: introduction }
-        : gameData.find((l) => l.level === currentLevel);
-    const currentStepData = activeContentData.steps[currentStep];
-    setRobotState(currentStepData.robot || "thinking");
+  const activeContentData = useMemo(() => {
+    if (gameState === "intro") return { steps: introduction };
+    return (gameData || []).find((l) => l.level === currentLevel);
+  }, [gameState, gameData, currentLevel]);
 
-    const isFinalLevel = currentLevel === 7;
-    const isFinalStep = currentStep === story[6].steps.length - 1;
-    if (isFinalLevel && isFinalStep) {
-      setShowConfetti(true);
-      saveProgress(8); // Save that level 8 is now unlocked
-    } else {
-      setShowConfetti(false); // Hide confetti if not on final step
+  const currentStepData = useMemo(() => {
+    if (!activeContentData || !activeContentData.steps) {
+        return { robot: 'thinking', type: 'intro', text: 'Loading content...' };
     }
-  }, [currentStep, currentLevel, gameState, gameData]); // Added gameData to dependencies
+    if (currentStep < 0 || currentStep >= activeContentData.steps.length) {
+        return { robot: 'thinking', type: 'intro', text: 'Content not found...' };
+    }
+    return activeContentData.steps[currentStep];
+  }, [activeContentData, currentStep]);
+
+
+  // --- CRITICAL FIX 1: This useEffect now ONLY sets the default robot state for a step ---
+  useEffect(() => {
+    // Only set default robot if we're not currently showing happy/sad from an answer
+    // or if the step specifically defines a robot and we're not waiting for an answer.
+    if (currentStepData.robot && !currentStepData.isComplete) {
+      setRobotState(currentStepData.robot);
+    } else if (currentStepData.type === 'intro' && currentStepData.robot) {
+      setRobotState(currentStepData.robot);
+    } else if (!currentStepData.robot) {
+       setRobotState('thinking'); // Default if not specified
+    }
+    setShowConfetti(false); // Reset confetti on new step
+  }, [currentStep, currentLevel, gameState, currentStepData]);
+
+
+  // --- CRITICAL FIX 2: Moved confetti logic to a separate useEffect for better control ---
+  useEffect(() => {
+    const isFinalLevel = currentLevel === 7;
+    const isFinalStep = story[6] && currentStep === story[6].steps.length - 1;
+    
+    if (isFinalLevel && isFinalStep && currentStepData.isComplete) { // Only show confetti when final step is COMPLETE
+      setShowConfetti(true);
+      saveProgress(8);
+    }
+  }, [currentLevel, currentStep, currentStepData.isComplete, saveProgress]);
+
 
   const handleSetCurrentLevel = (level) => {
     setCurrentLevel(level);
     setCurrentStep(0);
     setGameState("playing");
   };
+
+  // --- CRITICAL FIX 3: Redefined handleAnswer to explicitly set robot state ---
   const handleAnswer = (isCorrect) => {
-    const robotEmotion =
-      isCorrect === "Positive"
-        ? "happy"
-        : isCorrect === "Negative"
-        ? "sad"
-        : "neutral";
-    setRobotState(robotEmotion);
-    if (isCorrect) {
+    let newRobotState;
+    if (isCorrect === true) {
+      newRobotState = "happy";
+    } else if (isCorrect === false) {
+      newRobotState = "sad";
+    } else { // For sandbox where isCorrect can be 'Positive', 'Negative', 'Neutral'
+      newRobotState = (isCorrect === 'Positive') ? 'happy' : ((isCorrect === 'Negative') ? 'sad' : 'neutral');
+    }
+    setRobotState(newRobotState); // Set robot emotion based on answer
+
+    if (isCorrect === true || isCorrect === 'Positive' || isCorrect === 'Negative' || isCorrect === 'Neutral') {
       const newGameData = JSON.parse(JSON.stringify(gameData));
       const level = newGameData.find((l) => l.level === currentLevel);
-      if (level && level.steps[currentStep]) {
+      if (level && level.steps && level.steps[currentStep]) {
         level.steps[currentStep].isComplete = true;
         setGameData(newGameData);
       }
     }
   };
+
 
   const handleNext = () => {
     if (gameState === "intro") {
@@ -127,18 +156,20 @@ function App() {
         setCurrentStep(currentStep + 1);
       } else {
         setGameState("playing");
-        setCurrentStep(0); // Move to the first step of Level 1
-        // After intro, check if we need to set initial level from backend
+        setCurrentStep(0);
         if (unlockedLevel > 1) setCurrentLevel(unlockedLevel);
       }
       return;
     }
-    const activeContentData = gameData.find((l) => l.level === currentLevel);
-    const isLastStep = currentStep === activeContentData.steps.length - 1;
+
+    const currentActiveLevelData = (gameData || []).find((l) => l.level === currentLevel);
+    if (!currentActiveLevelData || !currentActiveLevelData.steps) return;
+
+    const isLastStep = currentStep === currentActiveLevelData.steps.length - 1;
     if (isLastStep) {
-      if (currentLevel < 8) { // Max level is now 8
+      if (currentLevel < 8) {
         const nextLevel = currentLevel + 1;
-        saveProgress(nextLevel); // Save progress when moving to the next level
+        saveProgress(nextLevel);
         setCurrentLevel(nextLevel);
         setCurrentStep(0);
       }
@@ -152,17 +183,11 @@ function App() {
       setCurrentStep(currentStep - 1);
     }
   };
-
-  const activeContentDataForRender =
-    gameState === "intro"
-      ? { steps: introduction }
-      : gameData.find((l) => l.level === currentLevel);
-  const currentStepDataForRender = activeContentDataForRender.steps[currentStep];
   
   const isNextDisabled =
     gameState === "playing" &&
-    currentStepDataForRender.type !== "intro" &&
-    !currentStepDataForRender.isComplete;
+    currentStepData.type !== "intro" &&
+    !currentStepData.isComplete;
   const background =
     gameState === "intro"
       ? levelBackgrounds[0]
@@ -197,9 +222,9 @@ function App() {
           </>
         )}
       </AnimatePresence>
-      {activeContentDataForRender && (
+      {activeContentData && activeContentData.steps && (
         <Hero
-          levelData={activeContentDataForRender}
+          levelData={activeContentData}
           currentStep={currentStep}
           currentLevel={currentLevel}
           robotState={robotState}
