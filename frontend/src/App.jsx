@@ -34,6 +34,8 @@ function App() {
 
   useEffect(() => {
     const initializeApp = async () => {
+      // --- THIS IS THE CRITICAL FIX ---
+      // This check ensures the API call is ONLY made when userId is a valid string.
       if (!userId) {
         setIsAppLoading(false);
         return;
@@ -131,7 +133,7 @@ function App() {
 
   const handleAnswer = useCallback(
     (isCorrect) => {
-      let newRobotState;
+      let newRobotState = "thinking";
       if (isCorrect === true) newRobotState = "happy";
       else if (isCorrect === false) newRobotState = "sad";
       else if (isCorrect)
@@ -142,9 +144,7 @@ function App() {
             ? "sad"
             : "neutral";
 
-      if (newRobotState) {
-        setRobotState(newRobotState);
-      }
+      setRobotState(newRobotState);
 
       if (isCorrect) {
         const newGameData = JSON.parse(JSON.stringify(gameData));
