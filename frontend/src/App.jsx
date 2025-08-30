@@ -13,6 +13,8 @@ import Hero from "./sections/Hero";
 import HamburgerButton from "./components/HamburgerButton";
 import ConfettiEffect from "./components/ConfettiEffect";
 
+// --- CRITICAL FIX 1: Define API_BASE_URL robustly outside the component ---
+// This ensures it's resolved during build time and stable.
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const PROGRESS_API_ROUTE = `${API_BASE_URL}/api/progress`;
 
@@ -34,8 +36,42 @@ function App() {
   const [gameData, setGameData] = useState(story);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const userIdRef = useRef(getUserId());
-  const [isAppInitialized, setIsAppInitialized] = useState(false);
+
+  // Initialize userId as state for re-renders if it changes (though it shouldn't often)
+  const [userId, setUserId] = useState(null); // Initialize as null
+  const [isAppInitialized, setIsAppInitialized] = useState(false); // Manages loading state
+
+  // --- CRITICAL FIX 2: userId setup and initial data fetch ---
+  useEffect(() => {
+    // 1. Get/Set userId
+    const storedUserId = getUserId();
+    setUserId(storedUserId);
+
+    // 2. Fetch progress once userId is stable
+    const fetchProgress = async (id) => {
+      try {
+        const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${id}`);
+        setUnlockedLevel(data.currentLevel);
+        setCurrentLevel(data.currentLevel); // Start game at user's highest level
+      } catch (error) {
+        console.error("Could not fetch progress from backend", error);
+        // Default to level 1 on error or if no progress found
+        setUnlockedLevel(1);
+        setCurrentLevel(1);
+      } finally {
+        setIsAppInitialized(true); // Mark app as initialized once fetch attempt is done
+      }
+    };
+
+    if (storedUserId) {
+      // Only fetch if userId is actually available
+      fetchProgress(storedUserId);
+    } else {
+      // If for some reason userId couldn't be generated, still initialize app
+      setIsAppInitialized(true);
+      console.error("Failed to generate or retrieve userId.");
+    }
+  }, []); // Runs only once on component mount
 
   const totalQuestions = useMemo(
     () =>
@@ -54,12 +90,10 @@ function App() {
     [gameData]
   );
 
-  // --- CRITICAL FIX 1: Calculate per-level progress ---
   const levelProgress = useMemo(() => {
     const progress = {};
     (gameData || []).forEach((level) => {
       if (level.level < 8) {
-        // Only levels 1-7 have solvable questions
         const total = (level.steps || []).filter(
           (step) => step.type !== "intro"
         ).length;
@@ -72,43 +106,12 @@ function App() {
     return progress;
   }, [gameData]);
 
-  useEffect(() => {
-    const initializeApp = async () => {
-      if (!userIdRef.current) {
-        console.warn("userId not available, cannot fetch progress.");
-        setIsAppInitialized(true);
-        return;
-      }
-
-      try {
-        const { data } = await axios.get(
-          `${PROGRESS_API_ROUTE}/${userIdRef.current}`
-        );
-        setUnlockedLevel(data.currentLevel);
-        setCurrentLevel(data.currentLevel);
-        // --- Restore gameData completion status from backend ---
-        // This is a placeholder as backend only stores 'currentLevel'.
-        // For a full persistence, gameData (step completion) would also be saved/loaded.
-        // For now, we'll assume only `unlockedLevel` dictates what the user can access.
-      } catch (error) {
-        console.error("Could not fetch progress from backend", error);
-        setUnlockedLevel(1);
-        setCurrentLevel(1);
-      } finally {
-        setIsAppInitialized(true);
-      }
-    };
-
-    initializeApp();
-  }, []);
-
   const saveProgress = useCallback(
     async (newLevel) => {
-      if (!isAppInitialized || !userIdRef.current || newLevel <= unlockedLevel)
-        return;
+      if (!isAppInitialized || !userId || newLevel <= unlockedLevel) return; // Only save if initialized and userId is present
 
       try {
-        await axios.post(`${PROGRESS_API_ROUTE}/${userIdRef.current}`, {
+        await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, {
           newLevel: newLevel,
         });
         setUnlockedLevel(newLevel);
@@ -116,7 +119,7 @@ function App() {
         console.error("Failed to save progress", error);
       }
     },
-    [isAppInitialized, unlockedLevel]
+    [isAppInitialized, userId, unlockedLevel]
   );
 
   const activeContentData = useMemo(() => {
@@ -192,12 +195,12 @@ function App() {
   );
 
   const handleNext = useCallback(() => {
-    // --- CRITICAL FIX 2: Strict disabling of Next button ---
-    // Prevent navigation if the current step is a challenge AND not yet complete
+    const isQuestionChallenge = currentStepData.type !== "intro";
+    // --- CRITICAL FIX 3: Strict check for completion before proceeding ---
     if (
-      currentStepData.type !== "intro" &&
-      !currentStepData.isComplete &&
-      gameState === "playing"
+      gameState === "playing" &&
+      isQuestionChallenge &&
+      !currentStepData.isComplete
     ) {
       console.warn("Cannot proceed: current question not answered correctly.");
       return;
@@ -209,7 +212,7 @@ function App() {
       } else {
         setGameState("playing");
         setCurrentStep(0);
-        setCurrentLevel(unlockedLevel);
+        setCurrentLevel(unlockedLevel); // Transition from intro to user's unlocked level
       }
       return;
     }
@@ -238,9 +241,8 @@ function App() {
     unlockedLevel,
     gameData,
     saveProgress,
-    currentStepData.type,
-    currentStepData.isComplete,
-  ]); // Add currentStepData dependencies
+    currentStepData,
+  ]);
 
   const handlePrev = useCallback(() => {
     if (currentStep > 0) {
@@ -248,17 +250,18 @@ function App() {
     }
   }, [currentStep]);
 
-  // This `isNextDisabled` prop is only for *visual* disabling of the button
-  // The actual logic for preventing navigation is now in `handleNext`
+  // isNextDisabledVisually is for the button's disabled prop only
   const isNextDisabledVisually =
     gameState === "playing" &&
     currentStepData.type !== "intro" &&
     !currentStepData.isComplete;
+
   const background =
     gameState === "intro"
       ? levelBackgrounds[0]
       : levelBackgrounds[currentLevel - 1];
 
+  // --- CRITICAL FIX 4: App-wide loading screen ---
   if (!isAppInitialized) {
     return (
       <main
@@ -297,26 +300,27 @@ function App() {
               userLevel={unlockedLevel}
               setCurrentLevel={handleSetCurrentLevel}
               setIsOpen={setIsSidebarOpen}
-              levelProgress={levelProgress} // Pass level progress here
+              levelProgress={levelProgress}
             />
           </>
         )}
       </AnimatePresence>
-      {activeContentData && activeContentData.steps && (
-        <Hero
-          levelData={activeContentData}
-          currentStep={currentStep}
-          currentLevel={currentLevel}
-          robotState={robotState}
-          onNext={handleNext}
-          onPrev={handlePrev}
-          onAnswer={handleAnswer}
-          isNextDisabled={isNextDisabledVisually}
-          isIntro={gameState === "intro"}
-          completedQuestions={completedQuestions}
-          totalQuestions={totalQuestions}
-        />
-      )}
+      {activeContentData &&
+        activeContentData.steps && ( // Ensure data is ready for Hero
+          <Hero
+            levelData={activeContentData}
+            currentStep={currentStep}
+            currentLevel={currentLevel}
+            robotState={robotState}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onAnswer={handleAnswer}
+            isNextDisabled={isNextDisabledVisually}
+            isIntro={gameState === "intro"}
+            completedQuestions={completedQuestions}
+            totalQuestions={totalQuestions}
+          />
+        )}
     </main>
   );
 }
