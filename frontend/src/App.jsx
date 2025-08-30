@@ -7,25 +7,16 @@ import Hero from "./sections/Hero";
 import HamburgerButton from "./components/HamburgerButton";
 import ConfettiEffect from "./components/ConfettiEffect";
 
-// --- FIX: Define constants robustly at the top level ---
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const PROGRESS_API_ROUTE = `${API_BASE_URL}/api/progress`;
 
 const getUserId = () => {
-  try {
-    let userId = localStorage.getItem("sentimentAdventureUserId");
-    if (!userId) {
-      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem("sentimentAdventureUserId", userId);
-    }
-    return userId;
-  } catch (error) {
-    console.error(
-      "Could not access localStorage. User ID will not be persisted.",
-      error
-    );
-    return `session_${Date.now()}`;
+  let userId = localStorage.getItem("sentimentAdventureUserId");
+  if (!userId) {
+    userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem("sentimentAdventureUserId", userId);
   }
+  return userId;
 };
 
 function App() {
@@ -41,31 +32,17 @@ function App() {
 
   const userId = useMemo(() => getUserId(), []);
 
-  // --- FIX: Bulletproof useEffect for initial data fetching ---
   useEffect(() => {
     const initializeApp = async () => {
-      // Extensive logging to see what's happening in the browser console
-      console.log("--- Initializing App ---");
-      console.log("VITE_API_URL from env:", import.meta.env.VITE_API_URL);
-      console.log("Final API Base URL:", API_BASE_URL);
-      console.log("User ID:", userId);
-
-      // Guard clause: Do NOT proceed if the userId is not a valid string.
-      if (!userId || typeof userId !== "string") {
-        console.error(
-          "Initialization failed: userId is invalid. Cannot fetch progress."
-        );
-        setIsAppLoading(false); // Allow the app to start fresh
+      if (!userId) {
+        setIsAppLoading(false);
         return;
       }
-
-      const finalUrl = `${PROGRESS_API_ROUTE}/${userId}`;
-      console.log("Attempting to fetch progress from URL:", finalUrl);
-
       try {
-        const { data } = await axios.get(finalUrl);
-        setUnlockedLevel(data.currentLevel);
-        setCurrentLevel(data.currentLevel);
+        const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
+        // --- FIX: Expect 'unlockedLevel' from the API response ---
+        setUnlockedLevel(data.unlockedLevel);
+        setCurrentLevel(data.unlockedLevel);
       } catch (error) {
         console.error("Could not fetch progress. Starting fresh.", error);
         setUnlockedLevel(1);
@@ -76,6 +53,24 @@ function App() {
     };
     initializeApp();
   }, [userId]);
+
+  const saveProgress = useCallback(
+    async (newLevel) => {
+      if (!userId || newLevel <= unlockedLevel) return;
+      try {
+        // --- FIX: Send 'newUnlockedLevel' in the request body ---
+        await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, {
+          newUnlockedLevel: newLevel,
+        });
+        setUnlockedLevel(newLevel);
+      } catch (error) {
+        console.error("Failed to save progress", error);
+      }
+    },
+    [userId, unlockedLevel]
+  );
+
+  // All other functions and useMemo hooks remain the same...
 
   const totalQuestions = useMemo(
     () =>
@@ -109,19 +104,6 @@ function App() {
     return progress;
   }, [gameData]);
 
-  const saveProgress = useCallback(
-    async (newLevel) => {
-      if (!userId || newLevel <= unlockedLevel) return;
-      try {
-        await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, { newLevel });
-        setUnlockedLevel(newLevel);
-      } catch (error) {
-        console.error("Failed to save progress", error);
-      }
-    },
-    [userId, unlockedLevel]
-  );
-
   const activeContentData = useMemo(() => {
     if (gameState === "intro") return { steps: introduction };
     return gameData.find((l) => l.level === currentLevel);
@@ -154,7 +136,7 @@ function App() {
 
   const handleAnswer = useCallback(
     (isCorrect) => {
-      let newRobotState = "thinking";
+      let newRobotState;
       if (isCorrect === true) newRobotState = "happy";
       else if (isCorrect === false) newRobotState = "sad";
       else if (isCorrect)
