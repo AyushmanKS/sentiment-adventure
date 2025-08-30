@@ -7,7 +7,11 @@ import Hero from "./sections/Hero";
 import HamburgerButton from "./components/HamburgerButton";
 import ConfettiEffect from "./components/ConfettiEffect";
 
-const API_URL = "http://localhost:5000/api/progress";
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL 
+  : "http://localhost:5000";
+
+const PROGRESS_API_URL = `${API_BASE_URL}/api/progress`;
 
 const getUserId = () => {
   let userId = localStorage.getItem("sentimentAdventureUserId");
@@ -20,7 +24,7 @@ const getUserId = () => {
 
 function App() {
   const [gameState, setGameState] = useState("intro");
-  const [unlockedLevel, setUnlockedLevel] = useState(1); // Renamed from userLevel
+  const [unlockedLevel, setUnlockedLevel] = useState(1); 
   const [currentLevel, setCurrentLevel] = useState(1);
   const [currentStep, setCurrentStep] = useState(0);
   const [robotState, setRobotState] = useState("intro");
@@ -46,24 +50,28 @@ function App() {
     [gameData]
   );
 
-  // Effect to load progress from backend on startup
   useEffect(() => {
     const fetchProgress = async () => {
       try {
-        const { data } = await axios.get(`${API_URL}/${userId}`);
-        setUnlockedLevel(data.unlockedLevel);
+        const { data } = await axios.get(`${PROGRESS_API_URL}/${userId}`);
+        setUnlockedLevel(data.currentLevel);
+        setCurrentLevel(data.currentLevel);
       } catch (error) {
         console.error("Could not fetch progress", error);
+        setUnlockedLevel(1);
+        setCurrentLevel(1);
       }
     };
-    fetchProgress();
-  }, [userId]);
+    if (gameState !== 'intro' || (currentLevel === 1 && currentStep === 0)) {
+       fetchProgress();
+    }
+  }, [userId, gameState]);
 
   const saveProgress = async (newLevel) => {
     if (newLevel > unlockedLevel) {
       try {
-        await axios.post(`${API_URL}/${userId}`, {
-          newUnlockedLevel: newLevel,
+        await axios.post(`${PROGRESS_API_URL}/${userId}`, {
+          newLevel: newLevel,
         });
         setUnlockedLevel(newLevel);
       } catch (error) {
@@ -85,8 +93,10 @@ function App() {
     if (isFinalLevel && isFinalStep) {
       setShowConfetti(true);
       saveProgress(8); // Save that level 8 is now unlocked
+    } else {
+      setShowConfetti(false); // Hide confetti if not on final step
     }
-  }, [currentStep, currentLevel, gameState]);
+  }, [currentStep, currentLevel, gameState, gameData]); // Added gameData to dependencies
 
   const handleSetCurrentLevel = (level) => {
     setCurrentLevel(level);
@@ -117,14 +127,16 @@ function App() {
         setCurrentStep(currentStep + 1);
       } else {
         setGameState("playing");
-        setCurrentStep(0);
+        setCurrentStep(0); // Move to the first step of Level 1
+        // After intro, check if we need to set initial level from backend
+        if (unlockedLevel > 1) setCurrentLevel(unlockedLevel);
       }
       return;
     }
     const activeContentData = gameData.find((l) => l.level === currentLevel);
     const isLastStep = currentStep === activeContentData.steps.length - 1;
     if (isLastStep) {
-      if (currentLevel < 8) {
+      if (currentLevel < 8) { // Max level is now 8
         const nextLevel = currentLevel + 1;
         saveProgress(nextLevel); // Save progress when moving to the next level
         setCurrentLevel(nextLevel);
@@ -141,15 +153,16 @@ function App() {
     }
   };
 
-  const activeContentData =
+  const activeContentDataForRender =
     gameState === "intro"
       ? { steps: introduction }
       : gameData.find((l) => l.level === currentLevel);
-  const currentStepData = activeContentData.steps[currentStep];
+  const currentStepDataForRender = activeContentDataForRender.steps[currentStep];
+  
   const isNextDisabled =
     gameState === "playing" &&
-    currentStepData.type !== "intro" &&
-    !currentStepData.isComplete;
+    currentStepDataForRender.type !== "intro" &&
+    !currentStepDataForRender.isComplete;
   const background =
     gameState === "intro"
       ? levelBackgrounds[0]
@@ -184,9 +197,9 @@ function App() {
           </>
         )}
       </AnimatePresence>
-      {activeContentData && (
+      {activeContentDataForRender && (
         <Hero
-          levelData={activeContentData}
+          levelData={activeContentDataForRender}
           currentStep={currentStep}
           currentLevel={currentLevel}
           robotState={robotState}
