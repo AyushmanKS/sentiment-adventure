@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { story, levelBackgrounds, introduction } from "./constants";
@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL
   : "http://localhost:5000";
 
-const PROGRESS_API_URL = `${API_BASE_URL}/api/progress`;
+const PROGRESS_API_ROUTE = `${API_BASE_URL}/api/progress`; // This is the root for progress API calls
 
 const getUserId = () => {
   let userId = localStorage.getItem("sentimentAdventureUserId");
@@ -32,6 +32,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [userId] = useState(getUserId());
+  const [isDataLoaded, setIsDataLoaded] = useState(false); // New state to track if progress data is loaded
 
   const totalQuestions = useMemo(
     () =>
@@ -50,25 +51,30 @@ function App() {
     [gameData]
   );
 
-  useEffect(() => {
-    const fetchProgress = async () => {
-      try {
-        const { data } = await axios.get(`${PROGRESS_API_URL}/${userId}`);
-        setUnlockedLevel(data.currentLevel);
-        setCurrentLevel(data.currentLevel);
-      } catch (error) {
-        console.error("Could not fetch progress", error);
-        setUnlockedLevel(1);
-        setCurrentLevel(1);
-      }
-    };
-    fetchProgress();
+  // --- CRITICAL FIX 1: Fetch progress data once on initial load ---
+  const fetchProgress = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
+      setUnlockedLevel(data.currentLevel);
+      setCurrentLevel(data.currentLevel);
+    } catch (error) {
+      console.error("Could not fetch progress", error);
+      setUnlockedLevel(1);
+      setCurrentLevel(1);
+    } finally {
+      setIsDataLoaded(true); // Mark data as loaded regardless of success/failure
+    }
   }, [userId]);
+
+  useEffect(() => {
+    fetchProgress();
+  }, [fetchProgress]);
+
 
   const saveProgress = async (newLevel) => {
     if (newLevel > unlockedLevel) {
       try {
-        await axios.post(`${PROGRESS_API_URL}/${userId}`, {
+        await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, {
           newLevel: newLevel,
         });
         setUnlockedLevel(newLevel);
@@ -94,40 +100,25 @@ function App() {
   }, [activeContentData, currentStep]);
 
 
-  // --- CRITICAL FIX 1: This useEffect now ONLY sets the default robot state for a step ---
   useEffect(() => {
-    // Only set default robot if we're not currently showing happy/sad from an answer
-    // or if the step specifically defines a robot and we're not waiting for an answer.
-    if (currentStepData.robot && !currentStepData.isComplete) {
-      setRobotState(currentStepData.robot);
-    } else if (currentStepData.type === 'intro' && currentStepData.robot) {
-      setRobotState(currentStepData.robot);
-    } else if (!currentStepData.robot) {
-       setRobotState('thinking'); // Default if not specified
-    }
-    setShowConfetti(false); // Reset confetti on new step
-  }, [currentStep, currentLevel, gameState, currentStepData]);
+    setRobotState(currentStepData.robot || "thinking");
 
-
-  // --- CRITICAL FIX 2: Moved confetti logic to a separate useEffect for better control ---
-  useEffect(() => {
     const isFinalLevel = currentLevel === 7;
     const isFinalStep = story[6] && currentStep === story[6].steps.length - 1;
     
-    if (isFinalLevel && isFinalStep && currentStepData.isComplete) { // Only show confetti when final step is COMPLETE
+    if (isFinalLevel && isFinalStep && currentStepData.isComplete) {
       setShowConfetti(true);
       saveProgress(8);
+    } else {
+      setShowConfetti(false);
     }
-  }, [currentLevel, currentStep, currentStepData.isComplete, saveProgress]);
-
+  }, [currentStep, currentLevel, gameState, gameData, currentStepData, saveProgress]);
 
   const handleSetCurrentLevel = (level) => {
     setCurrentLevel(level);
     setCurrentStep(0);
     setGameState("playing");
   };
-
-  // --- CRITICAL FIX 3: Redefined handleAnswer to explicitly set robot state ---
   const handleAnswer = (isCorrect) => {
     let newRobotState;
     if (isCorrect === true) {
@@ -137,7 +128,7 @@ function App() {
     } else { // For sandbox where isCorrect can be 'Positive', 'Negative', 'Neutral'
       newRobotState = (isCorrect === 'Positive') ? 'happy' : ((isCorrect === 'Negative') ? 'sad' : 'neutral');
     }
-    setRobotState(newRobotState); // Set robot emotion based on answer
+    setRobotState(newRobotState);
 
     if (isCorrect === true || isCorrect === 'Positive' || isCorrect === 'Negative' || isCorrect === 'Neutral') {
       const newGameData = JSON.parse(JSON.stringify(gameData));
@@ -149,7 +140,6 @@ function App() {
     }
   };
 
-
   const handleNext = () => {
     if (gameState === "intro") {
       if (currentStep < introduction.length - 1) {
@@ -157,7 +147,12 @@ function App() {
       } else {
         setGameState("playing");
         setCurrentStep(0);
-        if (unlockedLevel > 1) setCurrentLevel(unlockedLevel);
+        // --- CRITICAL FIX 2: Only set currentLevel from unlockedLevel if data is loaded ---
+        if (isDataLoaded && unlockedLevel > 1) {
+          setCurrentLevel(unlockedLevel);
+        } else {
+          setCurrentLevel(1); // Default to Level 1 if no progress or still loading
+        }
       }
       return;
     }
