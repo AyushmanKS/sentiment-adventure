@@ -46,24 +46,23 @@ const Hero = ({
             />
           )}
 
-          <div className="flex-grow flex items-center mt-2 overflow-hidden">
-            <div className="w-1/2 h-full flex justify-center items-center">
+          <div className="flex-grow grid grid-cols-2 gap-8 items-center mt-2">
+            <div className="h-full flex justify-center items-center">
               <motion.img
                 key={robotState}
                 src={robotImages[robotState]}
                 alt="Gloomy the Robot"
-                className="max-h-full object-contain drop-shadow-[0_25px_25px_rgba(0,0,0,0.25)]"
+                className="max-h-full object-contain drop-shadow-[0_35px_35px_rgba(0,0,0,0.35)] -translate-y-12"
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", stiffness: 150, damping: 20 }}
               />
             </div>
-            <div className="w-1/2 h-full">
-              <ContentDisplay step={step} onAnswer={onAnswer} />
-            </div>
+            <ContentDisplay step={step} onAnswer={onAnswer} />
           </div>
         </div>
 
+        {/* The isNextDisabled prop is used directly here */}
         <NavButton onClick={onNext} disabled={isNextDisabled}>
           <svg
             className="h-8 w-8 text-[var(--color-text-heading)]"

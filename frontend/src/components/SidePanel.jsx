@@ -6,7 +6,14 @@ const sidebarVariants = {
   open: { x: 0 },
 };
 
-const LevelButton = ({ level, title, isUnlocked, isActive, onClick }) => {
+const LevelButton = ({
+  level,
+  title,
+  isUnlocked,
+  isActive,
+  onClick,
+  progress,
+}) => {
   const baseStyle =
     "w-full text-left p-3 rounded-lg font-bold transition-all duration-300";
   const activeStyle = "bg-[var(--color-teal)] text-white shadow-md";
@@ -21,7 +28,16 @@ const LevelButton = ({ level, title, isUnlocked, isActive, onClick }) => {
         isActive ? activeStyle : isUnlocked ? unlockedStyle : lockedStyle
       }`}
     >
-      Level {level}: {title}
+      <div className="flex justify-between items-center">
+        <span>
+          Level {level}: {title}
+        </span>
+        {progress && progress.total > 0 && (
+          <span className="text-sm font-normal text-gray-800">
+            {progress.solved} / {progress.total}
+          </span>
+        )}
+      </div>
     </button>
   );
 };
@@ -32,6 +48,7 @@ const SidePanel = ({
   userLevel,
   setCurrentLevel,
   setIsOpen,
+  levelProgress,
 }) => {
   return (
     <motion.div
@@ -74,6 +91,7 @@ const SidePanel = ({
             title={level.title}
             isUnlocked={level.level <= userLevel}
             isActive={level.level === currentLevel}
+            progress={levelProgress[level.level]} // Pass progress for this level
             onClick={() => {
               if (level.level <= userLevel) {
                 setCurrentLevel(level.level);
