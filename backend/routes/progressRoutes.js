@@ -2,34 +2,37 @@ const express = require("express");
 const router = express.Router();
 const UserProgress = require("../models/userProgressModel");
 
-// Get or create progress for a user
 router.get("/:userId", async (req, res) => {
   try {
-    let progress = await UserProgress.findOne({ userId: req.params.userId });
+    const { userId } = req.params;
+    console.log(`GET request received for userId: ${userId}`); // Add this log
+    let progress = await UserProgress.findOne({ userId });
     if (!progress) {
-      progress = await UserProgress.create({
-        userId: req.params.userId,
-        unlockedLevel: 1,
-      });
+      progress = await UserProgress.create({ userId, currentLevel: 1 });
     }
-    res.json(progress);
+    res.status(200).json(progress);
   } catch (error) {
-    res.status(500).json({ message: "Server error fetching progress." });
+    console.error(`Error in GET /api/progress/${req.params.userId}:`, error);
+    res.status(500).json({ message: "Server error while getting progress" });
   }
 });
 
-// Update a user's progress
 router.post("/:userId", async (req, res) => {
   try {
-    const { newUnlockedLevel } = req.body;
+    const { userId } = req.params;
+    const { newLevel } = req.body;
+    console.log(
+      `POST request received for userId: ${userId} with newLevel: ${newLevel}`
+    ); // Add this log
     const progress = await UserProgress.findOneAndUpdate(
-      { userId: req.params.userId },
-      { unlockedLevel: newUnlockedLevel },
+      { userId },
+      { currentLevel: newLevel },
       { new: true, upsert: true }
     );
-    res.json(progress);
+    res.status(200).json(progress);
   } catch (error) {
-    res.status(500).json({ message: "Server error saving progress." });
+    console.error(`Error in POST /api/progress/${req.params.userId}:`, error);
+    res.status(500).json({ message: "Server error while saving progress" });
   }
 });
 
