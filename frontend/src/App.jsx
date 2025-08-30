@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { story, levelBackgrounds, introduction } from "./constants";
@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL
   : "http://localhost:5000";
 
-const PROGRESS_API_ROUTE = `${API_BASE_URL}/api/progress`;
+const PROGRESS_API_ROUTE = `${API_BASE_URL}/api/progress`; // This is the root for progress API calls
 
 const getUserId = () => {
   let userId = localStorage.getItem("sentimentAdventureUserId");
@@ -32,8 +32,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [userId] = useState(getUserId());
-  
-  const hasFetchedProgress = useRef(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false); // New state to track if progress data is loaded
 
   const totalQuestions = useMemo(
     () =>
@@ -52,25 +51,27 @@ function App() {
     [gameData]
   );
 
-  useEffect(() => {
-    if (hasFetchedProgress.current || !userId) return;
-    hasFetchedProgress.current = true;
-
-    const fetchProgress = async () => {
-      try {
-        const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
-        setUnlockedLevel(data.currentLevel);
-        setCurrentLevel(data.currentLevel);
-      } catch (error) {
-        console.error("Could not fetch progress from backend", error);
-        setUnlockedLevel(1);
-        setCurrentLevel(1);
-      }
-    };
-    fetchProgress();
+  // --- CRITICAL FIX 1: Fetch progress data once on initial load ---
+  const fetchProgress = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
+      setUnlockedLevel(data.currentLevel);
+      setCurrentLevel(data.currentLevel);
+    } catch (error) {
+      console.error("Could not fetch progress", error);
+      setUnlockedLevel(1);
+      setCurrentLevel(1);
+    } finally {
+      setIsDataLoaded(true); // Mark data as loaded regardless of success/failure
+    }
   }, [userId]);
 
-  const saveProgress = useCallback(async (newLevel) => {
+  useEffect(() => {
+    fetchProgress();
+  }, [fetchProgress]);
+
+
+  const saveProgress = async (newLevel) => {
     if (newLevel > unlockedLevel) {
       try {
         await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, {
@@ -81,7 +82,7 @@ function App() {
         console.error("Failed to save progress", error);
       }
     }
-  }, [userId, unlockedLevel]);
+  };
 
   const activeContentData = useMemo(() => {
     if (gameState === "intro") return { steps: introduction };
@@ -99,69 +100,59 @@ function App() {
   }, [activeContentData, currentStep]);
 
 
-  // --- FIX: This useEffect now ONLY sets the robot to its default state when the step/level changes ---
   useEffect(() => {
-    // This effect's sole purpose is to set the robot to its default state when a *new* step is loaded.
-    // It should NOT react to changes in 'isComplete' for the *current* step.
     setRobotState(currentStepData.robot || "thinking");
-    setShowConfetti(false); // Always hide confetti when moving to a new step
-  }, [currentStep, currentLevel, gameState, currentStepData.robot]); // Dependencies are strictly about the 'step' changing, not 'isComplete'
 
-
-  // Confetti logic, separate from default robot state logic
-  useEffect(() => {
     const isFinalLevel = currentLevel === 7;
     const isFinalStep = story[6] && currentStep === story[6].steps.length - 1;
     
     if (isFinalLevel && isFinalStep && currentStepData.isComplete) {
       setShowConfetti(true);
-      saveProgress(8); // Unlock level 8 on completion of final step
+      saveProgress(8);
     } else {
-      setShowConfetti(false); // Ensure confetti is hidden on other steps
+      setShowConfetti(false);
     }
-  }, [currentLevel, currentStep, currentStepData.isComplete, saveProgress]);
+  }, [currentStep, currentLevel, gameState, gameData, currentStepData, saveProgress]);
 
-
-  const handleSetCurrentLevel = useCallback((level) => {
+  const handleSetCurrentLevel = (level) => {
     setCurrentLevel(level);
     setCurrentStep(0);
     setGameState("playing");
-  }, []);
-
-  // --- FIX: handleAnswer now explicitly manages robot state feedback and triggers gameData update ---
-  const handleAnswer = useCallback((isCorrect) => {
+  };
+  const handleAnswer = (isCorrect) => {
     let newRobotState;
-    if (isCorrect === true) { // For quizzes/cleanup with boolean true
+    if (isCorrect === true) {
       newRobotState = "happy";
-    } else if (isCorrect === false) { // For quizzes/cleanup with boolean false
+    } else if (isCorrect === false) {
       newRobotState = "sad";
-    } else if (isCorrect === null) { // For sandbox clear where no sentiment is predicted (reset to neutral)
-      newRobotState = "neutral";
-    } else { // For sandbox where sentiment is a string ('Positive', 'Negative', 'Neutral')
+    } else { // For sandbox where isCorrect can be 'Positive', 'Negative', 'Neutral'
       newRobotState = (isCorrect === 'Positive') ? 'happy' : ((isCorrect === 'Negative') ? 'sad' : 'neutral');
     }
-    setRobotState(newRobotState); // UNCONDITIONALLY SET ROBOT EMOTION HERE
+    setRobotState(newRobotState);
 
-    // Mark step complete if answer is positive/correct. This will trigger gameData re-memoization.
     if (isCorrect === true || isCorrect === 'Positive' || isCorrect === 'Negative' || isCorrect === 'Neutral') {
       const newGameData = JSON.parse(JSON.stringify(gameData));
       const level = newGameData.find((l) => l.level === currentLevel);
       if (level && level.steps && level.steps[currentStep]) {
         level.steps[currentStep].isComplete = true;
-        setGameData(newGameData); // This update causes a re-render
+        setGameData(newGameData);
       }
     }
-  }, [gameData, currentLevel, currentStep]);
+  };
 
-
-  const handleNext = useCallback(() => {
+  const handleNext = () => {
     if (gameState === "intro") {
       if (currentStep < introduction.length - 1) {
         setCurrentStep(currentStep + 1);
       } else {
         setGameState("playing");
         setCurrentStep(0);
-        setCurrentLevel(unlockedLevel); // Transition from intro to user's unlocked level
+        // --- CRITICAL FIX 2: Only set currentLevel from unlockedLevel if data is loaded ---
+        if (isDataLoaded && unlockedLevel > 1) {
+          setCurrentLevel(unlockedLevel);
+        } else {
+          setCurrentLevel(1); // Default to Level 1 if no progress or still loading
+        }
       }
       return;
     }
@@ -180,13 +171,13 @@ function App() {
     } else {
       setCurrentStep(currentStep + 1);
     }
-  }, [gameState, currentStep, currentLevel, introduction, unlockedLevel, gameData, saveProgress]);
+  };
 
-  const handlePrev = useCallback(() => {
+  const handlePrev = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
-  }, [currentStep]);
+  };
   
   const isNextDisabled =
     gameState === "playing" &&
@@ -196,14 +187,6 @@ function App() {
     gameState === "intro"
       ? levelBackgrounds[0]
       : levelBackgrounds[currentLevel - 1];
-
-  if (activeContentData === null && !gameState === 'intro') { // Added check for safety
-    return (
-      <main className="w-screen h-screen bg-cover bg-center flex items-center justify-center" style={{ backgroundImage: `url(${levelBackgrounds[0]})` }}>
-        <h1 className="text-4xl font-bold text-gray-800">Loading Gloomy's Adventure...</h1>
-      </main>
-    );
-  }
 
   return (
     <main
