@@ -28,18 +28,16 @@ function App() {
   const [gameData, setGameData] = useState(story);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-
-  const [userId, setUserId] = useState(null);
   const [isAppLoading, setIsAppLoading] = useState(true);
 
-  useEffect(() => {
-    setUserId(getUserId());
-  }, []);
+  const userId = useMemo(() => getUserId(), []);
 
   useEffect(() => {
-    if (!userId) return;
-
-    const fetchProgress = async () => {
+    const initializeApp = async () => {
+      if (!userId) {
+        setIsAppLoading(false);
+        return;
+      }
       try {
         const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
         setUnlockedLevel(data.currentLevel);
@@ -52,7 +50,7 @@ function App() {
         setIsAppLoading(false);
       }
     };
-    fetchProgress();
+    initializeApp();
   }, [userId]);
 
   const totalQuestions = useMemo(
@@ -133,7 +131,7 @@ function App() {
 
   const handleAnswer = useCallback(
     (isCorrect) => {
-      let newRobotState = "thinking";
+      let newRobotState;
       if (isCorrect === true) newRobotState = "happy";
       else if (isCorrect === false) newRobotState = "sad";
       else if (isCorrect)
@@ -144,7 +142,9 @@ function App() {
             ? "sad"
             : "neutral";
 
-      setRobotState(newRobotState);
+      if (newRobotState) {
+        setRobotState(newRobotState);
+      }
 
       if (isCorrect) {
         const newGameData = JSON.parse(JSON.stringify(gameData));
