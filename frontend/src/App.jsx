@@ -7,16 +7,25 @@ import Hero from "./sections/Hero";
 import HamburgerButton from "./components/HamburgerButton";
 import ConfettiEffect from "./components/ConfettiEffect";
 
+// --- FIX: Define constants robustly at the top level ---
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const PROGRESS_API_ROUTE = `${API_BASE_URL}/api/progress`;
 
 const getUserId = () => {
-  let userId = localStorage.getItem("sentimentAdventureUserId");
-  if (!userId) {
-    userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem("sentimentAdventureUserId", userId);
+  try {
+    let userId = localStorage.getItem("sentimentAdventureUserId");
+    if (!userId) {
+      userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem("sentimentAdventureUserId", userId);
+    }
+    return userId;
+  } catch (error) {
+    console.error(
+      "Could not access localStorage. User ID will not be persisted.",
+      error
+    );
+    return `session_${Date.now()}`;
   }
-  return userId;
 };
 
 function App() {
@@ -32,16 +41,29 @@ function App() {
 
   const userId = useMemo(() => getUserId(), []);
 
+  // --- FIX: Bulletproof useEffect for initial data fetching ---
   useEffect(() => {
     const initializeApp = async () => {
-      // --- THIS IS THE CRITICAL FIX ---
-      // This check ensures the API call is ONLY made when userId is a valid string.
-      if (!userId) {
-        setIsAppLoading(false);
+      // Extensive logging to see what's happening in the browser console
+      console.log("--- Initializing App ---");
+      console.log("VITE_API_URL from env:", import.meta.env.VITE_API_URL);
+      console.log("Final API Base URL:", API_BASE_URL);
+      console.log("User ID:", userId);
+
+      // Guard clause: Do NOT proceed if the userId is not a valid string.
+      if (!userId || typeof userId !== "string") {
+        console.error(
+          "Initialization failed: userId is invalid. Cannot fetch progress."
+        );
+        setIsAppLoading(false); // Allow the app to start fresh
         return;
       }
+
+      const finalUrl = `${PROGRESS_API_ROUTE}/${userId}`;
+      console.log("Attempting to fetch progress from URL:", finalUrl);
+
       try {
-        const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
+        const { data } = await axios.get(finalUrl);
         setUnlockedLevel(data.currentLevel);
         setCurrentLevel(data.currentLevel);
       } catch (error) {
@@ -114,7 +136,6 @@ function App() {
 
   useEffect(() => {
     setRobotState(currentStepData.robot || "thinking");
-
     const isFinal =
       currentLevel === 7 && currentStep === story[6]?.steps.length - 1;
     if (isFinal && currentStepData.isComplete) {
@@ -144,7 +165,9 @@ function App() {
             ? "sad"
             : "neutral";
 
-      setRobotState(newRobotState);
+      if (newRobotState) {
+        setRobotState(newRobotState);
+      }
 
       if (isCorrect) {
         const newGameData = JSON.parse(JSON.stringify(gameData));
