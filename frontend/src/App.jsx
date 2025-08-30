@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-} from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import axios from "axios";
 import { story, levelBackgrounds, introduction } from "./constants";
@@ -13,8 +7,6 @@ import Hero from "./sections/Hero";
 import HamburgerButton from "./components/HamburgerButton";
 import ConfettiEffect from "./components/ConfettiEffect";
 
-// --- CRITICAL FIX 1: Define API_BASE_URL robustly outside the component ---
-// This ensures it's resolved during build time and stable.
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const PROGRESS_API_ROUTE = `${API_BASE_URL}/api/progress`;
 
@@ -36,68 +28,55 @@ function App() {
   const [gameData, setGameData] = useState(story);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isAppInitialized, setIsAppInitialized] = useState(false);
 
-  // Initialize userId as state for re-renders if it changes (though it shouldn't often)
-  const [userId, setUserId] = useState(null); // Initialize as null
-  const [isAppInitialized, setIsAppInitialized] = useState(false); // Manages loading state
+  const userId = getUserId();
 
-  // --- CRITICAL FIX 2: userId setup and initial data fetch ---
   useEffect(() => {
-    // 1. Get/Set userId
-    const storedUserId = getUserId();
-    setUserId(storedUserId);
-
-    // 2. Fetch progress once userId is stable
-    const fetchProgress = async (id) => {
+    const initializeApp = async () => {
+      if (!userId) {
+        setIsAppInitialized(true);
+        return;
+      }
       try {
-        const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${id}`);
+        const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
         setUnlockedLevel(data.currentLevel);
-        setCurrentLevel(data.currentLevel); // Start game at user's highest level
+        setCurrentLevel(data.currentLevel);
       } catch (error) {
-        console.error("Could not fetch progress from backend", error);
-        // Default to level 1 on error or if no progress found
+        console.error("Could not fetch progress. Starting fresh.", error);
         setUnlockedLevel(1);
         setCurrentLevel(1);
       } finally {
-        setIsAppInitialized(true); // Mark app as initialized once fetch attempt is done
+        setIsAppInitialized(true);
       }
     };
-
-    if (storedUserId) {
-      // Only fetch if userId is actually available
-      fetchProgress(storedUserId);
-    } else {
-      // If for some reason userId couldn't be generated, still initialize app
-      setIsAppInitialized(true);
-      console.error("Failed to generate or retrieve userId.");
-    }
-  }, []); // Runs only once on component mount
+    initializeApp();
+  }, [userId]);
 
   const totalQuestions = useMemo(
     () =>
-      (story || [])
+      story
         .slice(0, 7)
-        .flatMap((level) => level.steps || [])
+        .flatMap((level) => level.steps)
         .filter((step) => step.type !== "intro").length,
     []
   );
   const completedQuestions = useMemo(
     () =>
-      (gameData || [])
+      gameData
         .slice(0, 7)
-        .flatMap((level) => level.steps || [])
+        .flatMap((level) => level.steps)
         .filter((step) => step.type !== "intro" && step.isComplete).length,
     [gameData]
   );
-
   const levelProgress = useMemo(() => {
     const progress = {};
-    (gameData || []).forEach((level) => {
+    gameData.forEach((level) => {
       if (level.level < 8) {
-        const total = (level.steps || []).filter(
+        const total = level.steps.filter(
           (step) => step.type !== "intro"
         ).length;
-        const solved = (level.steps || []).filter(
+        const solved = level.steps.filter(
           (step) => step.type !== "intro" && step.isComplete
         ).length;
         progress[level.level] = { total, solved };
@@ -108,49 +87,40 @@ function App() {
 
   const saveProgress = useCallback(
     async (newLevel) => {
-      if (!isAppInitialized || !userId || newLevel <= unlockedLevel) return; // Only save if initialized and userId is present
-
+      if (!userId || newLevel <= unlockedLevel) return;
       try {
-        await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, {
-          newLevel: newLevel,
-        });
+        await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, { newLevel });
         setUnlockedLevel(newLevel);
       } catch (error) {
         console.error("Failed to save progress", error);
       }
     },
-    [isAppInitialized, userId, unlockedLevel]
+    [userId, unlockedLevel]
   );
 
   const activeContentData = useMemo(() => {
     if (gameState === "intro") return { steps: introduction };
-    return (gameData || []).find((l) => l.level === currentLevel);
+    return gameData.find((l) => l.level === currentLevel);
   }, [gameState, gameData, currentLevel]);
 
   const currentStepData = useMemo(() => {
-    if (!activeContentData || !activeContentData.steps) {
-      return { robot: "thinking", type: "intro", text: "Loading content..." };
-    }
-    if (currentStep < 0 || currentStep >= activeContentData.steps.length) {
-      return { robot: "thinking", type: "intro", text: "Content not found..." };
+    if (!activeContentData?.steps?.[currentStep]) {
+      return { robot: "thinking", type: "intro", text: "Loading..." };
     }
     return activeContentData.steps[currentStep];
   }, [activeContentData, currentStep]);
 
   useEffect(() => {
     setRobotState(currentStepData.robot || "thinking");
-    setShowConfetti(false);
-  }, [currentStep, currentLevel, gameState, currentStepData.robot]);
-
-  useEffect(() => {
-    const isFinalLevel = currentLevel === 7;
-    const isFinalStep = story[6] && currentStep === story[6].steps.length - 1;
-
-    if (isFinalLevel && isFinalStep && currentStepData.isComplete) {
+    const isFinal =
+      currentLevel === 7 && currentStep === story[6]?.steps.length - 1;
+    if (isFinal && currentStepData.isComplete) {
       setShowConfetti(true);
       saveProgress(8);
+    } else {
+      setShowConfetti(false);
     }
-  }, [currentLevel, currentStep, currentStepData.isComplete, saveProgress]);
+  }, [currentStep, currentLevel, gameState, currentStepData, saveProgress]);
 
   const handleSetCurrentLevel = useCallback((level) => {
     setCurrentLevel(level);
@@ -160,32 +130,23 @@ function App() {
 
   const handleAnswer = useCallback(
     (isCorrect) => {
-      let newRobotState;
-      if (isCorrect === true) {
-        newRobotState = "happy";
-      } else if (isCorrect === false) {
-        newRobotState = "sad";
-      } else if (isCorrect === null) {
-        newRobotState = "neutral";
-      } else {
+      let newRobotState = "thinking";
+      if (isCorrect === true) newRobotState = "happy";
+      else if (isCorrect === false) newRobotState = "sad";
+      else if (isCorrect)
         newRobotState =
           isCorrect === "Positive"
             ? "happy"
             : isCorrect === "Negative"
             ? "sad"
             : "neutral";
-      }
+
       setRobotState(newRobotState);
 
-      if (
-        isCorrect === true ||
-        isCorrect === "Positive" ||
-        isCorrect === "Negative" ||
-        isCorrect === "Neutral"
-      ) {
+      if (isCorrect) {
         const newGameData = JSON.parse(JSON.stringify(gameData));
         const level = newGameData.find((l) => l.level === currentLevel);
-        if (level && level.steps && level.steps[currentStep]) {
+        if (level?.steps?.[currentStep]) {
           level.steps[currentStep].isComplete = true;
           setGameData(newGameData);
         }
@@ -195,16 +156,12 @@ function App() {
   );
 
   const handleNext = useCallback(() => {
-    const isQuestionChallenge = currentStepData.type !== "intro";
-    // --- CRITICAL FIX 3: Strict check for completion before proceeding ---
     if (
-      gameState === "playing" &&
-      isQuestionChallenge &&
-      !currentStepData.isComplete
-    ) {
-      console.warn("Cannot proceed: current question not answered correctly.");
+      currentStepData.type !== "intro" &&
+      !currentStepData.isComplete &&
+      gameState === "playing"
+    )
       return;
-    }
 
     if (gameState === "intro") {
       if (currentStep < introduction.length - 1) {
@@ -212,17 +169,12 @@ function App() {
       } else {
         setGameState("playing");
         setCurrentStep(0);
-        setCurrentLevel(unlockedLevel); // Transition from intro to user's unlocked level
+        setCurrentLevel(unlockedLevel);
       }
       return;
     }
 
-    const currentActiveLevelData = (gameData || []).find(
-      (l) => l.level === currentLevel
-    );
-    if (!currentActiveLevelData || !currentActiveLevelData.steps) return;
-
-    const isLastStep = currentStep === currentActiveLevelData.steps.length - 1;
+    const isLastStep = currentStep === activeContentData?.steps.length - 1;
     if (isLastStep) {
       if (currentLevel < 8) {
         const nextLevel = currentLevel + 1;
@@ -236,32 +188,27 @@ function App() {
   }, [
     gameState,
     currentStep,
-    currentLevel,
-    introduction,
     unlockedLevel,
     gameData,
     saveProgress,
+    currentLevel,
+    activeContentData,
     currentStepData,
   ]);
 
   const handlePrev = useCallback(() => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
+    if (currentStep > 0) setCurrentStep(currentStep - 1);
   }, [currentStep]);
 
-  // isNextDisabledVisually is for the button's disabled prop only
-  const isNextDisabledVisually =
+  const isNextDisabled =
     gameState === "playing" &&
     currentStepData.type !== "intro" &&
     !currentStepData.isComplete;
-
   const background =
     gameState === "intro"
       ? levelBackgrounds[0]
       : levelBackgrounds[currentLevel - 1];
 
-  // --- CRITICAL FIX 4: App-wide loading screen ---
   if (!isAppInitialized) {
     return (
       <main
@@ -305,22 +252,21 @@ function App() {
           </>
         )}
       </AnimatePresence>
-      {activeContentData &&
-        activeContentData.steps && ( // Ensure data is ready for Hero
-          <Hero
-            levelData={activeContentData}
-            currentStep={currentStep}
-            currentLevel={currentLevel}
-            robotState={robotState}
-            onNext={handleNext}
-            onPrev={handlePrev}
-            onAnswer={handleAnswer}
-            isNextDisabled={isNextDisabledVisually}
-            isIntro={gameState === "intro"}
-            completedQuestions={completedQuestions}
-            totalQuestions={totalQuestions}
-          />
-        )}
+      {activeContentData && activeContentData.steps && (
+        <Hero
+          levelData={activeContentData}
+          currentStep={currentStep}
+          currentLevel={currentLevel}
+          robotState={robotState}
+          onNext={handleNext}
+          onPrev={handlePrev}
+          onAnswer={handleAnswer}
+          isNextDisabled={isNextDisabled}
+          isIntro={gameState === "intro"}
+          completedQuestions={completedQuestions}
+          totalQuestions={totalQuestions}
+        />
+      )}
     </main>
   );
 }
