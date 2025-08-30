@@ -28,16 +28,18 @@ function App() {
   const [gameData, setGameData] = useState(story);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [isAppInitialized, setIsAppInitialized] = useState(false);
 
-  const userId = getUserId();
+  const [userId, setUserId] = useState(null);
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
   useEffect(() => {
-    const initializeApp = async () => {
-      if (!userId) {
-        setIsAppInitialized(true);
-        return;
-      }
+    setUserId(getUserId());
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const fetchProgress = async () => {
       try {
         const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
         setUnlockedLevel(data.currentLevel);
@@ -47,10 +49,10 @@ function App() {
         setUnlockedLevel(1);
         setCurrentLevel(1);
       } finally {
-        setIsAppInitialized(true);
+        setIsAppLoading(false);
       }
     };
-    initializeApp();
+    fetchProgress();
   }, [userId]);
 
   const totalQuestions = useMemo(
@@ -112,6 +114,7 @@ function App() {
 
   useEffect(() => {
     setRobotState(currentStepData.robot || "thinking");
+
     const isFinal =
       currentLevel === 7 && currentStep === story[6]?.steps.length - 1;
     if (isFinal && currentStepData.isComplete) {
@@ -209,7 +212,7 @@ function App() {
       ? levelBackgrounds[0]
       : levelBackgrounds[currentLevel - 1];
 
-  if (!isAppInitialized) {
+  if (isAppLoading) {
     return (
       <main
         className="w-screen h-screen bg-cover bg-center flex items-center justify-center"
