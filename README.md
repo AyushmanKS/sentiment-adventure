@@ -4,7 +4,8 @@
 
 **https://sentiment-adventure-three.vercel.app/** <!-- Replace with your live Vercel URL -->
 
-
+<img width="1919" height="911" alt="Image" src="https://github.com/user-attachments/assets/41b35057-23de-402c-9b7f-d62613a672bb" />
+<img width="1919" height="914" alt="Image" src="https://github.com/user-attachments/assets/71f94650-f1e7-4bf2-be76-ed118631203d" />
 <!-- After you take a great screenshot of your app, upload it to a site like Imgur and paste the URL here. -->
 
 ---
