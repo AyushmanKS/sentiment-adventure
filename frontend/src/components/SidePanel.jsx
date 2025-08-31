@@ -17,7 +17,7 @@ const LevelButton = ({
   const baseStyle =
     "w-full text-left p-3 rounded-lg font-bold transition-all duration-300";
   const activeStyle = "bg-[var(--color-teal)] text-white shadow-md";
-  const unlockedStyle = "hover:bg-[var(--color-peach)]";
+  const unlockedStyle = "hover:bg-[var(--color-peach)]"; // This is the hover effect
   const lockedStyle = "bg-gray-300 text-gray-500 cursor-not-allowed";
 
   return (
@@ -25,7 +25,11 @@ const LevelButton = ({
       onClick={onClick}
       disabled={!isUnlocked}
       className={`${baseStyle} ${
-        isActive ? activeStyle : isUnlocked ? unlockedStyle : lockedStyle
+        isActive
+          ? activeStyle
+          : isUnlocked
+          ? "hover:bg-gray-100 dark:hover:bg-gray-700"
+          : lockedStyle
       }`}
     >
       <div className="flex justify-between items-center">
