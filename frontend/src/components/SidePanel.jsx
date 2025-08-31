@@ -57,7 +57,7 @@ const SidePanel = ({
       animate="open"
       exit="closed"
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="fixed top-0 left-0 w-80 bg-white/80 backdrop-blur-lg p-6 h-full shadow-2xl z-50"
+      className="fixed top-0 left-0 w-96 bg-white/80 backdrop-blur-lg p-6 h-full shadow-2xl z-50"
     >
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-extrabold text-[var(--color-teal-dark)]">
@@ -91,7 +91,7 @@ const SidePanel = ({
             title={level.title}
             isUnlocked={level.level <= userLevel}
             isActive={level.level === currentLevel}
-            progress={levelProgress[level.level]} // Pass progress for this level
+            progress={levelProgress[level.level]}
             onClick={() => {
               if (level.level <= userLevel) {
                 setCurrentLevel(level.level);
