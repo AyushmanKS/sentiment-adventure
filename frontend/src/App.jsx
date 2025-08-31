@@ -19,6 +19,23 @@ const getUserId = () => {
   return userId;
 };
 
+const TypewriterText = ({ text, delay = 100 }) => {
+  const [currentText, setCurrentText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timeout = setTimeout(() => {
+        setCurrentText((prevText) => prevText + text[currentIndex]);
+        setCurrentIndex((prevIndex) => prevIndex + 1);
+      }, delay);
+      return () => clearTimeout(timeout);
+    }
+  }, [currentIndex, delay, text]);
+
+  return <>{currentText}</>;
+};
+
 function App() {
   const [gameState, setGameState] = useState("intro");
   const [unlockedLevel, setUnlockedLevel] = useState(1);
@@ -40,7 +57,6 @@ function App() {
       }
       try {
         const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
-        // --- FIX: Expect 'unlockedLevel' from the API response ---
         setUnlockedLevel(data.unlockedLevel);
         setCurrentLevel(data.unlockedLevel);
       } catch (error) {
@@ -58,7 +74,6 @@ function App() {
     async (newLevel) => {
       if (!userId || newLevel <= unlockedLevel) return;
       try {
-        // --- FIX: Send 'newUnlockedLevel' in the request body ---
         await axios.post(`${PROGRESS_API_ROUTE}/${userId}`, {
           newUnlockedLevel: newLevel,
         });
@@ -69,8 +84,6 @@ function App() {
     },
     [userId, unlockedLevel]
   );
-
-  // All other functions and useMemo hooks remain the same...
 
   const totalQuestions = useMemo(
     () =>
@@ -182,7 +195,9 @@ function App() {
       return;
     }
 
-    const isLastStep = currentStep === activeContentData?.steps.length - 1;
+    const isLastStep =
+      activeContentData?.steps &&
+      currentStep === activeContentData.steps.length - 1;
     if (isLastStep) {
       if (currentLevel < 8) {
         const nextLevel = currentLevel + 1;
@@ -224,7 +239,7 @@ function App() {
         style={{ backgroundImage: `url(${levelBackgrounds[0]})` }}
       >
         <h1 className="text-4xl font-bold text-gray-800">
-          Loading Gloomy's Adventure...
+          <TypewriterText text="Loading Gloomy's Adventure..." />
         </h1>
       </main>
     );
