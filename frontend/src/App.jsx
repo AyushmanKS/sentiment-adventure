@@ -36,6 +36,50 @@ const TypewriterText = ({ text, delay = 100 }) => {
   return <>{currentText}</>;
 };
 
+// Level Themes
+const levelThemes = {
+  1: {
+    bg: "var(--level1-bg)",
+    text: "var(--level1-text)",
+    shadow: "var(--level1-bg)",
+  },
+  2: {
+    bg: "var(--level2-bg)",
+    text: "var(--level2-text)",
+    shadow: "var(--level2-bg)",
+  },
+  3: {
+    bg: "var(--level3-bg)",
+    text: "var(--level3-text)",
+    shadow: "var(--level3-bg)",
+  },
+  4: {
+    bg: "var(--level4-bg)",
+    text: "var(--level4-text)",
+    shadow: "var(--level4-bg)",
+  },
+  5: {
+    bg: "var(--level5-bg)",
+    text: "var(--level5-text)",
+    shadow: "var(--level5-bg)",
+  },
+  6: {
+    bg: "var(--level6-bg)",
+    text: "var(--level6-text)",
+    shadow: "var(--level6-bg)",
+  },
+  7: {
+    bg: "var(--level7-bg)",
+    text: "var(--level7-text)",
+    shadow: "var(--level7-bg)",
+  },
+  default: {
+    bg: "var(--default-bg)",
+    text: "var(--default-text)",
+    shadow: "var(--default-bg)",
+  },
+};
+
 function App() {
   const [gameState, setGameState] = useState("intro");
   const [unlockedLevel, setUnlockedLevel] = useState(1);
@@ -232,6 +276,11 @@ function App() {
       ? levelBackgrounds[0]
       : levelBackgrounds[currentLevel - 1];
 
+  const activeTheme =
+    gameState === "playing"
+      ? levelThemes[currentLevel] || levelThemes.default
+      : levelThemes.default;
+
   if (isAppLoading) {
     return (
       <main
@@ -288,6 +337,7 @@ function App() {
           isIntro={gameState === "intro"}
           completedQuestions={completedQuestions}
           totalQuestions={totalQuestions}
+          theme={activeTheme}
         />
       )}
     </main>

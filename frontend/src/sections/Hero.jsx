@@ -16,8 +16,16 @@ const Hero = ({
   isIntro,
   completedQuestions,
   totalQuestions,
+  theme, // New theme prop
 }) => {
   const step = levelData.steps[currentStep];
+
+  // --- NEW: Dynamic Styles ---
+  const containerStyle = {
+    backgroundColor: theme.bg,
+    color: theme.text,
+    boxShadow: `0 10px 15px -3px ${theme.shadow}, 0 4px 6px -2px ${theme.shadow}`,
+  };
 
   return (
     <section className="min-h-screen w-full flex items-center justify-center p-8">
@@ -38,7 +46,10 @@ const Hero = ({
           </svg>
         </NavButton>
 
-        <div className="soft-container w-full max-w-5xl h-[580px] flex flex-col p-6">
+        <div
+          className="soft-container w-full max-w-5xl h-[580px] flex flex-col p-6"
+          style={containerStyle} // Apply dynamic styles
+        >
           {!isIntro && (
             <ProgressBar
               completed={completedQuestions}

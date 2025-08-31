@@ -182,8 +182,6 @@ const ContentDisplay = ({ step, onAnswer }) => {
           );
           let result;
 
-          // --- THIS IS THE CRITICAL FIX ---
-          // Changed from score > 1 to score >= 1
           if (score >= 1) result = "Positive";
           else if (score < 0) result = "Negative";
           else result = "Neutral";
@@ -200,18 +198,15 @@ const ContentDisplay = ({ step, onAnswer }) => {
 
   const renderContent = () => {
     switch (step.type) {
-      // All other cases remain the same
       case "intro":
         return (
           <p className="text-2xl font-semibold leading-relaxed">{step.text}</p>
         );
       case "quiz":
         return (
-          <div className="w-full">
-            {" "}
-            <h3 className="text-2xl font-bold mb-6">{step.question}</h3>{" "}
+          <div className="w-full text-[var(--color-text-heading)]">
+            <h3 className="text-2xl font-bold mb-6">{step.question}</h3>
             <div className="space-y-3">
-              {" "}
               {step.options.map((option) => {
                 const isCorrectAnswer = option === step.answer;
                 const wasChosenWrong = wrongAnswers.includes(option);
@@ -228,21 +223,18 @@ const ContentDisplay = ({ step, onAnswer }) => {
                     disabled={isQuestionComplete}
                     className={`block w-full p-3 rounded-xl text-lg font-semibold shadow-md transition-all ${buttonStyle}`}
                   >
-                    {" "}
-                    {option}{" "}
+                    {option}
                   </button>
                 );
-              })}{" "}
-            </div>{" "}
+              })}
+            </div>
           </div>
         );
       case "cleanup":
         return (
-          <div className="w-full">
-            {" "}
-            <h3 className="text-2xl font-bold mb-6">{step.question}</h3>{" "}
+          <div className="w-full text-[var(--color-text-heading)]">
+            <h3 className="text-2xl font-bold mb-6">{step.question}</h3>
             <div className="bg-white/70 p-4 rounded-xl text-xl font-semibold flex flex-wrap gap-x-2 gap-y-2">
-              {" "}
               {step.sentence.split(" ").map((word, index) => {
                 const shouldBeRemoved = step.wordsToRemove.includes(word);
                 const isRemoved = cleanedWords.includes(word);
@@ -255,28 +247,25 @@ const ContentDisplay = ({ step, onAnswer }) => {
                       className={`px-2 py-1 rounded-md transition-all ${
                         isRemoved
                           ? "bg-red-200 text-red-500 line-through"
-                          : "bg-blue-200 hover:bg-blue-300"
+                          : "bg-blue-200 hover:bg-blue-300 text-gray-800"
                       }`}
                       whileTap={{ scale: 0.9 }}
                     >
-                      {" "}
-                      {word}{" "}
+                      {word}
                     </motion.button>
                   );
                 }
                 return <span key={index}>{word}</span>;
-              })}{" "}
-            </div>{" "}
+              })}
+            </div>
           </div>
         );
       case "sort":
         if (!sortBins) return null;
         return (
-          <div className="w-full">
-            {" "}
-            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>{" "}
+          <div className="w-full text-[var(--color-text-heading)]">
+            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>
             <div className="flex justify-center gap-4 mb-4 min-h-[48px]">
-              {" "}
               {sortBins.unsorted.map((item) => (
                 <div
                   key={item.id}
@@ -286,10 +275,9 @@ const ContentDisplay = ({ step, onAnswer }) => {
                 >
                   {item.text}
                 </div>
-              ))}{" "}
-            </div>{" "}
+              ))}
+            </div>
             <div className="flex gap-4">
-              {" "}
               {step.bins.map((binName) => (
                 <div
                   key={binName}
@@ -301,8 +289,7 @@ const ContentDisplay = ({ step, onAnswer }) => {
                       : "border-red-400"
                   }`}
                 >
-                  {" "}
-                  <h4 className="font-bold mb-2">{binName}</h4>{" "}
+                  <h4 className="font-bold mb-2">{binName}</h4>
                   {sortBins[binName].map((item) => (
                     <div
                       key={item.id}
@@ -310,10 +297,10 @@ const ContentDisplay = ({ step, onAnswer }) => {
                     >
                       {item.text}
                     </div>
-                  ))}{" "}
+                  ))}
                 </div>
-              ))}{" "}
-            </div>{" "}
+              ))}
+            </div>
             {showReset ? (
               <button
                 onClick={handleReset}
@@ -331,17 +318,16 @@ const ContentDisplay = ({ step, onAnswer }) => {
                   Check Answer
                 </button>
               )
-            )}{" "}
+            )}
           </div>
         );
       case "slider":
         return (
-          <div className="w-full">
-            {" "}
-            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>{" "}
+          <div className="w-full text-[var(--color-text-heading)]">
+            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>
             <p className="font-semibold text-xl mb-4 p-3 bg-white/70 rounded-lg">
               {step.sentence}
-            </p>{" "}
+            </p>
             <input
               type="range"
               min="0"
@@ -350,12 +336,12 @@ const ContentDisplay = ({ step, onAnswer }) => {
               onChange={(e) => setSliderValue(e.target.value)}
               disabled={isQuestionComplete}
               className="w-full"
-            />{" "}
+            />
             <div className="flex justify-between w-full text-sm font-bold mt-2">
               <span>{step.labels[0]}</span>
               <span>{step.labels[1]}</span>
               <span>{step.labels[2]}</span>
-            </div>{" "}
+            </div>
             {!isQuestionComplete && (
               <button
                 onClick={checkSliderAnswer}
@@ -363,17 +349,15 @@ const ContentDisplay = ({ step, onAnswer }) => {
               >
                 Submit Rating
               </button>
-            )}{" "}
+            )}
           </div>
         );
       case "order":
         if (!orderedItems) return null;
         return (
-          <div className="w-full">
-            {" "}
-            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>{" "}
+          <div className="w-full text-[var(--color-text-heading)]">
+            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>
             <div className="p-4 bg-white/70 rounded-lg min-h-[200px]">
-              {" "}
               {orderedItems.map((item, index) => (
                 <div
                   key={item}
@@ -385,8 +369,8 @@ const ContentDisplay = ({ step, onAnswer }) => {
                 >
                   <span className="font-bold">{index + 1}.</span> {item}
                 </div>
-              ))}{" "}
-            </div>{" "}
+              ))}
+            </div>
             {showReset ? (
               <button
                 onClick={handleReset}
@@ -403,18 +387,15 @@ const ContentDisplay = ({ step, onAnswer }) => {
                   Check Order
                 </button>
               )
-            )}{" "}
+            )}
           </div>
         );
       case "mapping":
         return (
-          <div className="w-full">
-            {" "}
-            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>{" "}
+          <div className="w-full text-[var(--color-text-heading)]">
+            <h3 className="text-2xl font-bold mb-4">{step.question}</h3>
             <div className="flex justify-between">
-              {" "}
               <div className="w-1/2 space-y-3 pr-4">
-                {" "}
                 {step.items.map((item) => {
                   const isSelected = selectedItem === item.id;
                   const mappedCategory = mappings[item.id];
@@ -433,19 +414,17 @@ const ContentDisplay = ({ step, onAnswer }) => {
                       disabled={!!mappedCategory || isQuestionComplete}
                       className={`w-full p-3 rounded-xl text-lg font-semibold shadow-md transition-all text-left ${itemStyle}`}
                     >
-                      {" "}
-                      {item.text}{" "}
+                      {item.text}
                       {mappedCategory && (
                         <span className="font-normal text-sm text-blue-800">
                           → {mappedCategory}
                         </span>
-                      )}{" "}
+                      )}
                     </button>
                   );
-                })}{" "}
-              </div>{" "}
+                })}
+              </div>
               <div className="w-1/2 space-y-3 pl-4">
-                {" "}
                 {step.categories.map((cat) => (
                   <button
                     key={cat}
@@ -455,9 +434,9 @@ const ContentDisplay = ({ step, onAnswer }) => {
                   >
                     {cat}
                   </button>
-                ))}{" "}
-              </div>{" "}
-            </div>{" "}
+                ))}
+              </div>
+            </div>
             {showReset ? (
               <button
                 onClick={handleReset}
@@ -475,18 +454,16 @@ const ContentDisplay = ({ step, onAnswer }) => {
                   Check Answer
                 </button>
               )
-            )}{" "}
+            )}
           </div>
         );
       case "fill-in-the-blank": {
         const isCorrect = filledWord === step.answer;
         return (
-          <div className="w-full">
-            {" "}
-            <h3 className="text-2xl font-bold mb-6">{step.question}</h3>{" "}
+          <div className="w-full text-[var(--color-text-heading)]">
+            <h3 className="text-2xl font-bold mb-6">{step.question}</h3>
             <div className="bg-white/70 p-6 rounded-xl text-2xl font-semibold mb-6">
-              {" "}
-              <span>{step.sentenceParts[0]} </span>{" "}
+              <span>{step.sentenceParts[0]} </span>
               <span
                 className={`inline-block px-4 py-1 rounded-lg ${
                   filledWord
@@ -496,13 +473,11 @@ const ContentDisplay = ({ step, onAnswer }) => {
                     : "bg-gray-300"
                 }`}
               >
-                {" "}
-                {filledWord || "_______"}{" "}
-              </span>{" "}
-              <span> {step.sentenceParts[1]}</span>{" "}
-            </div>{" "}
+                {filledWord || "_______"}
+              </span>
+              <span> {step.sentenceParts[1]}</span>
+            </div>
             <div className="flex justify-center gap-4">
-              {" "}
               {step.options.map((option) => (
                 <button
                   key={option}
@@ -510,23 +485,20 @@ const ContentDisplay = ({ step, onAnswer }) => {
                   disabled={isQuestionComplete}
                   className="p-3 rounded-xl text-lg font-semibold shadow-md bg-blue-200 hover:bg-blue-300 disabled:opacity-50"
                 >
-                  {" "}
-                  {option}{" "}
+                  {option}
                 </button>
-              ))}{" "}
-            </div>{" "}
+              ))}
+            </div>
           </div>
         );
       }
       case "sandbox":
         return (
-          <div className="w-full h-full flex flex-col">
-            {" "}
+          <div className="w-full h-full flex flex-col text-[var(--color-text-heading)]">
             <h3 className="text-2xl font-bold mb-2 text-center">
               {step.question}
-            </h3>{" "}
+            </h3>
             <div className="bg-white/80 p-3 rounded-lg min-h-[80px] text-xl font-semibold mb-3 shadow-inner flex flex-wrap gap-2 items-center">
-              {" "}
               {sentenceWords.length > 0 ? (
                 sentenceWords.map((word, i) => (
                   <span key={`${word.text}-${i}`}>{word.text}</span>
@@ -535,12 +507,10 @@ const ContentDisplay = ({ step, onAnswer }) => {
                 <span className="text-gray-400">
                   Build your sentence here...
                 </span>
-              )}{" "}
-            </div>{" "}
+              )}
+            </div>
             <div className="bg-white/50 p-3 rounded-lg flex-grow overflow-y-auto shadow-inner mb-3">
-              {" "}
               <div className="flex flex-wrap gap-2">
-                {" "}
                 {step.wordBank.map((word, i) => (
                   <button
                     key={`${word.text}-${i}`}
@@ -549,33 +519,26 @@ const ContentDisplay = ({ step, onAnswer }) => {
                   >
                     {word.text}
                   </button>
-                ))}{" "}
-              </div>{" "}
-            </div>{" "}
+                ))}
+              </div>
+            </div>
             <div className="h-[60px] flex items-center justify-center gap-4 mt-auto">
-              {" "}
               {isLoading ? (
                 <div className="w-full text-center">
-                  {" "}
                   <div className="w-full bg-gray-200 rounded-full h-6 shadow-inner">
-                    {" "}
                     <div
                       className="bg-teal-500 h-6 rounded-full text-white font-bold"
                       style={{ width: `${loadingProgress}%` }}
                     >
                       {loadingProgress}%
-                    </div>{" "}
-                  </div>{" "}
-                  <span className="font-bold text-teal-700">Predicting...</span>{" "}
+                    </div>
+                  </div>
+                  <span className="font-bold text-teal-700">Predicting...</span>
                 </div>
               ) : prediction ? (
                 <div className="text-center">
-                  {" "}
-                  <h4 className="font-bold text-xl">
-                    Gloomy's Prediction:
-                  </h4>{" "}
+                  <h4 className="font-bold text-xl">Gloomy's Prediction:</h4>
                   <div className="flex items-center justify-center gap-4 mt-2">
-                    {" "}
                     <p
                       className={`text-2xl font-extrabold ${
                         prediction === "Positive"
@@ -586,35 +549,34 @@ const ContentDisplay = ({ step, onAnswer }) => {
                       }`}
                     >
                       {prediction}
-                    </p>{" "}
+                    </p>
                     <button
                       onClick={handleSandboxReset}
                       className="p-3 px-6 bg-orange-500 text-white rounded-lg font-bold shadow-md hover:bg-orange-600"
                     >
                       Try Again
-                    </button>{" "}
-                  </div>{" "}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
-                  {" "}
                   <button
                     onClick={handlePredict}
                     disabled={sentenceWords.length === 0}
                     className="p-3 px-6 bg-teal-500 text-white rounded-lg font-bold shadow-md hover:bg-teal-600 disabled:bg-gray-400"
                   >
                     Predict
-                  </button>{" "}
+                  </button>
                   <button
                     onClick={handleSandboxReset}
                     disabled={sentenceWords.length === 0}
                     className="p-3 px-6 bg-gray-500 text-white rounded-lg font-bold shadow-md hover:bg-gray-600"
                   >
                     Clear
-                  </button>{" "}
+                  </button>
                 </>
-              )}{" "}
-            </div>{" "}
+              )}
+            </div>
           </div>
         );
       default:
