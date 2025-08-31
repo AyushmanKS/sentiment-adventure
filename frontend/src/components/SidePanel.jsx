@@ -17,7 +17,7 @@ const LevelButton = ({
   const baseStyle =
     "w-full text-left p-3 rounded-lg font-bold transition-all duration-300";
   const activeStyle = "bg-[var(--color-teal)] text-white shadow-md";
-  const unlockedStyle = "hover:bg-[var(--color-peach)]"; // This is the hover effect
+  const unlockedStyle = "hover:bg-[var(--color-peach)]";
   const lockedStyle = "bg-gray-300 text-gray-500 cursor-not-allowed";
 
   return (

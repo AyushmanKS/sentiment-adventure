@@ -62,7 +62,6 @@ const Hero = ({
           </div>
         </div>
 
-        {/* The isNextDisabled prop is used directly here */}
         <NavButton onClick={onNext} disabled={isNextDisabled}>
           <svg
             className="h-8 w-8 text-[var(--color-text-heading)]"
