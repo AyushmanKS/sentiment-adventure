@@ -102,12 +102,12 @@ function App() {
       try {
         const { data } = await axios.get(`${PROGRESS_API_ROUTE}/${userId}`);
         setUnlockedLevel(data.unlockedLevel);
-        setCurrentLevel(data.unlockedLevel);
+        // We no longer set currentLevel here to ensure it starts fresh
       } catch (error) {
         console.error("Could not fetch progress. Starting fresh.", error);
         setUnlockedLevel(1);
-        setCurrentLevel(1);
       } finally {
+        setCurrentLevel(1); // Always start at level 1 visually
         setIsAppLoading(false);
       }
     };
@@ -234,7 +234,9 @@ function App() {
       } else {
         setGameState("playing");
         setCurrentStep(0);
-        setCurrentLevel(unlockedLevel);
+        // --- THIS IS THE FIX ---
+        // Always start at level 1 after the intro, regardless of unlocked level
+        setCurrentLevel(1);
       }
       return;
     }
@@ -255,8 +257,6 @@ function App() {
   }, [
     gameState,
     currentStep,
-    unlockedLevel,
-    gameData,
     saveProgress,
     currentLevel,
     activeContentData,
